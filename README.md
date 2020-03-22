@@ -8,7 +8,7 @@ explains in [web.go](examples/web.go#L13).
 
 #### Demo build
 
-Install `libcap` and `libpsx`.
+Install `libcap` (which should also include `libpsx`).
 
 To build example example:
 
