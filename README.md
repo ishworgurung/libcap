@@ -27,6 +27,6 @@ $ sudo setcap cap_setpcap,cap_net_bind_service=+p ./web
 $ ./web --port=80
 2020/03/22 15:30:39 Saying hello from proc: 45869->45869, caps="=", euid=1000
 $ curl -s localhost:80
-Hello from proc: 46407->46407, caps="=", euid=1000
+Hello from proc: 45869->45869, caps="=", euid=1000
 ```
 
