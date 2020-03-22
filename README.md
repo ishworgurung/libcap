@@ -2,9 +2,7 @@
 
 This is the work of Andrew G. Morgan and numerous others.
 
-Until, https://go-review.googlesource.com/c/go/+/210639/ is merged,
-this can be used as a drop-in replacement which Andrew G. Morgan clearly
-explains in [web.go](examples/web.go#L13).
+Until, https://go-review.googlesource.com/c/go/+/210639/ is merged, this can be used as a drop-in CGO replacement to the above change in Go runtime. It is nicely explained by Andrew G. Morgan in [web.go](examples/web.go#L13).
 
 #### Demo build
 
