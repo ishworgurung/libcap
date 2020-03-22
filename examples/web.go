@@ -37,8 +37,8 @@ import (
 	"net/http"
 	"runtime"
 	"syscall"
-	"github.com/ishworgurung/libcap/cap"
 
+	"github.com/ishworgurung/libcap/cap"
 )
 
 var (
@@ -103,11 +103,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// is bouncing around on different kernel thread ids.
 	p := syscall.Getpid()
 	t := syscall.Gettid()
+	u := syscall.Geteuid()
 	c := cap.GetProc()
 	runtime.UnlockOSThread()
 
-	log.Printf("Saying hello from proc: %d->%d, caps=%q", p, t, c)
-	fmt.Fprintf(w, "Hello from proc: %d->%d, caps=%q\n", p, t, c)
+	log.Printf("Saying hello from proc: %d->%d, caps=%q, euid=%d", p, t, c, u)
+	fmt.Fprintf(w, "Hello from proc: %d->%d, caps=%q, euid=%d\n", p, t, c, u)
 }
 
 func main() {
