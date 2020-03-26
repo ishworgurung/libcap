@@ -3,8 +3,9 @@
 package cap
 
 import (
-	"github.com/ishworgurung/libcap/psx"
 	"syscall"
+
+	"github.com/ishworgurung/libcap/psx"
 )
 
 // multisc provides syscalls overridable for testing purposes that

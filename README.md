@@ -1,14 +1,19 @@
 # Description
 
-This is the work of Andrew G. Morgan and numerous others.
+This is the original work of Andrew G. Morgan and numerous others. Much thanks.
 
-Until, https://go-review.googlesource.com/c/go/+/210639/ is merged, this can be used as a drop-in CGO replacement to the above change in Go runtime. It is nicely explained by Andrew G. Morgan in [web.go](examples/web.go#L13).
+Until, https://go-review.googlesource.com/c/go/+/210639/ is merged, this can be used as a drop-in CGO replacement to 
+achieve many things amongst which one is a *proper* privilege seperation in Go.
 
-#### Demo build
+It is nicely explained by Andrew G. Morgan in [web.go](examples/web.go#L13).
+
+#### Build
 
 Install `libcap` (which should also include `libpsx`).
 
-To build example example:
+The source for `libcap` can be found at https://git.kernel.org/pub/scm/libs/libcap/libcap.git
+
+To build the sample web server:
 
 ```fish
 $ env CGO_ENABLED="1"            \
@@ -16,7 +21,7 @@ CGO_LDFLAGS_ALLOW="-Wl,-wrap,.+" \
     go build -o web web.go
 ```
 
-#### Run un-privilege binary
+#### Run un-privileged binary
 
 ```fish
 $ ./web --port=80
