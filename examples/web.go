@@ -30,6 +30,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -42,14 +43,14 @@ import (
 )
 
 var (
-	port     = flag.Int("port", 0, "port to listen on")
-	skipPriv = flag.Bool("skip", false, "skip raising the effective capability - will fail for low ports")
+	port               = flag.Int("port", 0, "port to listen on")
+	skipPrivilegeCheck = flag.Bool("skip", false, "skip raising the effective capability - will fail for low ports")
 )
 
-// ensureNotEUID aborts the program if it is running setuid something,
+// init aborts the program if it is running setuid something,
 // or being invoked by root.  That is, the preparer isn't setting up
 // the program correctly.
-func ensureNotEUID() {
+func init() {
 	euid := syscall.Geteuid()
 	uid := syscall.Getuid()
 	egid := syscall.Getegid()
@@ -64,39 +65,62 @@ func ensureNotEUID() {
 
 // listen creates a listener by raising effective privilege only to
 // bind to address and then lowering that effective privilege.
-func listen(network, address string) (net.Listener, error) {
-	if *skipPriv {
-		return net.Listen(network, address)
+func (h *HandlerContext) listen(network, address string) (net.Listener, error) {
+	if *skipPrivilegeCheck == true {
+		l, err := net.Listen(network, address)
+		if err != nil {
+			return nil, errors.New(err.Error())
+		}
+		if err := cap.ModeNoPriv.Set(); err != nil {
+			return nil, errors.New(err.Error())
+		}
+		return l, nil
 	}
-
-	orig := cap.GetProc()
-	defer orig.SetProc() // restore original caps on exit.
-
-	c, err := orig.Dup()
+	originalCapabilities := cap.GetProc()
+	defer func() {
+		if err := originalCapabilities.SetProc(); err != nil {
+			log.Fatal(err)
+		}
+	}() // restore original caps on exit.
+	dupCapabilities, err := originalCapabilities.Dup()
 	if err != nil {
-		return nil, fmt.Errorf("failed to dup caps: %v", err)
+		return nil, errors.New(err.Error())
 	}
-
-	if on, _ := c.GetFlag(cap.Permitted, cap.NET_BIND_SERVICE); !on {
-		return nil, fmt.Errorf("insufficient privilege to bind to low ports - want %q, have %q", cap.NET_BIND_SERVICE, c)
+	if on, err := dupCapabilities.GetFlag(cap.Permitted, cap.NET_BIND_SERVICE); !on {
+		if err != nil {
+			return nil, errors.New(err.Error())
+		} else {
+			return nil, errors.New(
+				fmt.Sprintf(
+					"insufficient privilege to bind to low ports - want %q, have %q",
+					cap.NET_BIND_SERVICE, dupCapabilities))
+		}
 	}
-
-	if err := c.SetFlag(cap.Effective, true, cap.NET_BIND_SERVICE); err != nil {
-		return nil, fmt.Errorf("unable to set capability: %v", err)
+	if err := dupCapabilities.SetFlag(cap.Effective, true, cap.NET_BIND_SERVICE); err != nil {
+		return nil, errors.New(err.Error()) // unable to set capability
 	}
-
-	if err := c.SetProc(); err != nil {
-		return nil, fmt.Errorf("unable to raise capabilities %q: %v", c, err)
+	if err := dupCapabilities.SetProc(); err != nil {
+		return nil, errors.New(err.Error()) // unable to raise capabilities
 	}
 	return net.Listen(network, address)
 }
 
-// Handler is used to abstract the ServeHTTP function.
-type Handler struct{}
+// HandlerContext is used to abstract the ServeHTTP function.
+type HandlerContext struct {
+	skipPrivilegeCheck bool
+	port               int
+}
+
+func newHandler(skipPrivilegeCheck bool, port int) HandlerContext {
+	return HandlerContext{
+		skipPrivilegeCheck: skipPrivilegeCheck,
+		port:               port,
+	}
+}
 
 // ServeHTTP says hello from a single Go hardware thread and reveals
 // its capabilities.
-func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h HandlerContext) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	runtime.LockOSThread()
 	// Get some numbers consistent to the current execution, so
 	// the returned web page demonstrates that the code execution
@@ -106,33 +130,31 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	u := syscall.Geteuid()
 	c := cap.GetProc()
 	runtime.UnlockOSThread()
-
 	log.Printf("Saying hello from proc: %d->%d, caps=%q, euid=%d", p, t, c, u)
-	fmt.Fprintf(w, "Hello from proc: %d->%d, caps=%q, euid=%d\n", p, t, c, u)
+	if _, err := fmt.Fprintf(w,
+		"Hello from proc: %d->%d, caps=%q, euid=%d\n", p, t, c, u); err != nil {
+		log.Printf("Failed to write response")
+	}
 }
 
 func main() {
 	flag.Parse()
-
 	if *port == 0 {
 		log.Fatal("please supply --port value")
 	}
-
-	ensureNotEUID()
-
-	ls, err := listen("tcp", fmt.Sprintf(":%d", *port))
+	h := newHandler(*skipPrivilegeCheck, *port)
+	lis, err := h.listen("tcp", fmt.Sprintf(":%d", *port))
 	if err != nil {
-		log.Fatalf("aborting: %v", err)
+		log.Fatalf("aborting: %s", err)
 	}
-	defer ls.Close()
-
-	if !*skipPriv {
-		if err := cap.ModeNoPriv.Set(); err != nil {
-			log.Fatalf("unable to drop all privilege: %v", err)
-		}
+	if lis != nil {
+		defer func() {
+			if err := lis.Close(); err != nil {
+				log.Fatalf("unable to close listening socket :%s", err)
+			}
+		}()
 	}
-
-	if err := http.Serve(ls, &Handler{}); err != nil {
+	if err := http.Serve(lis, h); err != nil {
 		log.Fatalf("server failed: %v", err)
 	}
 }

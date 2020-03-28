@@ -11,6 +11,8 @@ It is nicely explained by Andrew G. Morgan in [web.go](examples/web.go#L13).
 
 Install `libcap` (which should also include `libpsx`).
 
+Tested on `libcap` version 2.33
+
 The source for `libcap` can be found at https://git.kernel.org/pub/scm/libs/libcap/libcap.git
 
 To build the sample web server:
@@ -33,3 +35,17 @@ $ curl -s localhost:80
 Hello from proc: 45869->45869, caps="=", euid=1000
 ```
 
+#### Skip privilege checks
+
+```fish
+$ ./web --port=8080 --skip
+2020/03/22 16:05:16 Saying hello from proc: 56453->56455, caps="=", euid=1000
+$ curl -s localhost:8080
+Hello from proc: 56453->56455, caps="=", euid=1000
+```
+
+#### Run as root user
+```fish
+$ sudo ./web --port=80
+2020/03/29 16:10:15 go runtime is running as root - cheating
+```

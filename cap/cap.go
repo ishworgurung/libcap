@@ -41,7 +41,7 @@ const (
 type data [Inheritable + 1]uint32
 
 // Set is an opaque capabilities container for a set of system
-// capbilities.
+// capabilities.
 type Set struct {
 	// mu protects all other members of a Set.
 	mu sync.RWMutex
